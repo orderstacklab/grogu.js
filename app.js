@@ -2,9 +2,20 @@ const express = require("express");
 const fs = require("fs");
 const app = express();
 const { logger, fatalError } = require("./utils");
+const CRUDGenerator = require("./utils/crudGenerator");
+const SwaggerGenerator = require("./utils/swaggerGenerator");
+
+const path = require("path");
 
 // Root directory path
-const rootDir = require("path").dirname(require.main.filename);
+const rootDir = path.dirname(require.main.filename);
+
+// Initialize CRUD operations
+const crudGenerator = new CRUDGenerator(
+	path.join(__dirname, "models"),
+	path.join(__dirname, "controllers"),
+	path.join(__dirname, "services")
+);
 
 // require dotenv for .env variable injection
 if (process.argv.length >= 3) {
@@ -32,6 +43,7 @@ const middlewaresDir = rootDir + "/middlewares";
 const configDir = rootDir + "/config";
 
 const utils = require("./utils");
+const mongooseConnector = require("./utils/mongooseConnector");
 const port = process.env.PORT || 3000;
 
 // prettier-ignore
@@ -47,6 +59,18 @@ if (!apiVersionConfig.default || !apiVersionConfig.allowedVersions) {
 
 // function to load the app
 const load = async function () {
+	try {
+		await crudGenerator.initialize();
+		console.log("CRUD operations initialized successfully");
+	} catch (error) {
+		console.error("Failed to initialize CRUD operations:", error);
+		process.exit(1);
+	}
+
+	// Initialize Swagger documentation
+	const swaggerGenerator = new SwaggerGenerator(app);
+	await swaggerGenerator.initialize(path.join(__dirname, "models"));
+
 	// Services and Middleware objects to store all the required functions
 	const Services = {};
 	const Middlewares = {};
@@ -174,6 +198,9 @@ const load = async function () {
 		// attach router to the baseRoute through app
 		app.use("/" + baseRoute, expressRouter);
 	});
+
+	// mongoose connector
+	await mongooseConnector({ mongo: config.mongo });
 };
 
 process.on("unhandledRejection", (error) => {

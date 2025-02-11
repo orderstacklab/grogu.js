@@ -1,6 +1,5 @@
 node_modules/
 tmp/
 .env
-.env.dev
-.env.l2p
+.env.*
 keys/
